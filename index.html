@@ -1,232 +1,246 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Magic Xmas - Final Pro</title>
-    <style>
-        /* 深色高級感背景 */
-        body { 
-            margin: 0; 
-            background: radial-gradient(circle at center, #0a121a 0%, #000 100%); 
-            overflow: hidden; 
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
-            touch-action: none; 
-            color: #fff;
-        }
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        #video-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-        
-        /* 標題與 UI */
-        .ui-header { position: absolute; top: 50px; width: 100%; text-align: center; z-index: 10; pointer-events: none; }
-        .main-title { font-size: 1.8rem; font-weight: 200; letter-spacing: 12px; color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); margin: 0; }
-        
-        #hint-text { position: absolute; bottom: 60px; width: 100%; text-align: center; z-index: 10; font-size: 0.85rem; color: rgba(255,255,255,0.6); letter-spacing: 2px; }
+<style>
+  body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+  #fullscreen-btn { 
+    position: fixed; top: 25px; right: 25px; z-index: 100;
+    padding: 10px 20px; background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50px; cursor: pointer; backdrop-filter: blur(10px);
+    font-size: 13px; letter-spacing: 1px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #fullscreen-btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; transform: scale(1.05); }
+  video { display: none; }
+</style>
 
-        /* 設定按鈕 */
-        #lib-toggle { position: absolute; top: 35px; left: 25px; z-index: 150; background: transparent; border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; backdrop-filter: blur(5px); }
+<button id="fullscreen-btn">ENTER IMMERSIVE</button>
+<video id="input-video"></video>
 
-        /* 設定側面板 */
-        #library {
-            position: absolute; top: 0; left: -100%; width: 85%; max-width: 350px; height: 100%; 
-            background: rgba(5, 10, 15, 0.98); z-index: 200; transition: 0.5s; padding: 30px; 
-            border-right: 1px solid rgba(255, 215, 0, 0.1); box-sizing: border-box; overflow-y: auto;
-        }
-        #library.open { left: 0; }
-        .setting-item { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
-        .setting-item input { font-size: 12px; width: 130px; color: #888; }
-        .setting-item img { width: 45px; height: 45px; border: 1px solid #ffd700; object-fit: cover; border-radius: 4px; }
-        #save-btn { width: 100%; padding: 15px; background: transparent; color: #ffd700; border: 1px solid #ffd700; cursor: pointer; font-weight: bold; letter-spacing: 2px; margin-top: 10px; }
-        
-        /* 相簿模式 */
-        #gallery-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.9); z-index: 20; opacity: 0; pointer-events: none; transition: 0.8s; }
-        #gallery-photo { max-width: 85%; max-height: 65%; border: 1px solid rgba(255,215,0,0.4); padding: 5px; background: #000; transition: opacity 0.3s; }
+<script>
+/**
+ * 高级配置：增加粒子密度与色彩深度
+ */
+const PARAMS = {
+  pCount: 8000,
+  colors: [0x00ffff, 0xff00ff, 0xffff00], // 霓虹三原色
+  heartColor: 0xff3366,
+  lerpSpeed: 0.08,
+  bloomScale: 1.2
+};
 
-        body.gallery-active #canvas-container { filter: blur(25px) brightness(0.2); transform: scale(1.1); }
-        body.gallery-active #gallery-container { opacity: 1; pointer-events: auto; }
-    </style>
-</head>
-<body>
-    <button id="lib-toggle">⚙</button>
-    <div id="library">
-        <h2 style="font-weight: 200; color: #ffd700; letter-spacing: 4px; margin-bottom: 30px;">SETTINGS</h2>
-        <div id="file-inputs-container"></div>
-        <button id="save-btn" onclick="savePhotos()">SAVE & RESTART</button>
-        <p style="font-size: 10px; color: #666; margin-top: 15px;">* 圖片將自動壓縮以節省空間</p>
-    </div>
+let scene, camera, renderer, starSystem, clock;
+let currentGesture = -1;
+let targetPos = [];
+let extraObjects = [];
 
-    <video id="video-hidden" autoplay playsinline muted></video>
-    <div id="canvas-container"></div>
-    <div id="gallery-container"><img id="gallery-photo" src=""></div>
+/**
+ * 视觉增强：创建发光纹理
+ */
+function createGlowTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.2, 'rgba(255,255,255,0.5)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
 
-    <div class="ui-header">
-        <h1 class="main-title">REAL MAGIC XMAS</h1>
-    </div>
-    <div id="hint-text">INITIALIZING...</div>
+/**
+ * 文字点云提取优化 (支持更细腻的形状)
+ */
+function getTextPoints(text, isLove = false) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 600; canvas.height = 300;
+  ctx.fillStyle = 'white';
+  ctx.font = `bold ${isLove ? 100 : 140}px Arial Black`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 300, 150);
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
+  const data = ctx.getImageData(0, 0, 600, 300).data;
+  const pts = [];
+  const step = 4; // 密度控制
+  for (let y = 0; y < 300; y += step) {
+    for (let x = 0; x < 600; x += step) {
+      if (data[(y * 600 + x) * 4 + 3] > 128) {
+        pts.push(new THREE.Vector3((x - 300) * 0.08, (150 - y) * 0.08, (Math.random()-0.5)*2));
+      }
+    }
+  }
+  return pts;
+}
 
-    <script type="module">
-        import * as THREE from 'three';
+/**
+ * 初始化华丽的3D环境
+ */
+function init() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.z = 30;
 
-        // --- 1. 相簿與自動壓縮邏輯 ---
-        const photoKeys = ['xmas_p0', 'xmas_p1', 'xmas_p2', 'xmas_p3', 'xmas_p4', 'xmas_p5'];
-        const container = document.getElementById('file-inputs-container');
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-        // 生成設定介面
-        photoKeys.forEach((key, i) => {
-            const savedData = localStorage.getItem(key);
-            const item = document.createElement('div');
-            item.className = 'setting-item';
-            item.innerHTML = `
-                <input type="file" id="input-${i}" accept="image/*" onchange="window.handlePreview(${i})">
-                <img id="prev-${i}" src="${savedData || ''}" style="display: ${savedData ? 'block' : 'none'}">
-            `;
-            container.appendChild(item);
-        });
+  // 粒子系统初始化
+  const geo = new THREE.BufferGeometry();
+  const posArray = new Float32Array(PARAMS.pCount * 3);
+  const colorArray = new Float32Array(PARAMS.pCount * 3);
 
-        // 圖片壓縮核心函數
-        async function compressImage(base64Str) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.src = base64Str;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const maxSide = 800; // 限制最大尺寸
-                    if (width > height && width > maxSide) { height *= maxSide / width; width = maxSide; }
-                    else if (height > maxSide) { width *= maxSide / height; height = maxSide; }
-                    canvas.width = width; canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質設為 0.7
-                };
-            });
-        }
+  for(let i=0; i<PARAMS.pCount; i++) {
+    posArray[i*3] = (Math.random()-0.5)*100;
+    posArray[i*3+1] = (Math.random()-0.5)*100;
+    posArray[i*3+2] = (Math.random()-0.5)*100;
+    
+    const color = new THREE.Color(PARAMS.colors[i % 3]);
+    colorArray[i*3] = color.r;
+    colorArray[i*3+1] = color.g;
+    colorArray[i*3+2] = color.b;
+  }
 
-        window.handlePreview = async (idx) => {
-            const file = document.getElementById(`input-${idx}`).files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                document.getElementById('hint-text').innerText = "COMPRESSING...";
-                const compressed = await compressImage(e.target.result);
-                const img = document.getElementById(`prev-${idx}`);
-                img.src = compressed;
-                img.style.display = 'block';
-                document.getElementById('hint-text').innerText = "READY";
-            };
-            reader.readAsDataURL(file);
-        };
+  geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
 
-        window.savePhotos = () => {
-            try {
-                photoKeys.forEach((key, i) => {
-                    const src = document.getElementById(`prev-${i}`).src;
-                    if (src.startsWith('data:image')) localStorage.setItem(key, src);
-                });
-                alert("儲存成功！");
-                location.reload();
-            } catch (e) {
-                alert("儲存空間不足，請嘗試上傳較少或較小的圖片。");
-            }
-        };
+  const mat = new THREE.PointsMaterial({
+    size: 0.35,
+    map: createGlowTexture(),
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
 
-        const photos = photoKeys.map(k => localStorage.getItem(k)).filter(d => d);
+  starSystem = new THREE.Points(geo, mat);
+  scene.add(starSystem);
+  
+  clock = new THREE.Clock();
+}
 
-        // --- 2. 3D 粒子聖誕樹 (Python 邏輯移植) ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 15, 60);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+/**
+ * 庆典动效：水晶质感气球
+ */
+function spawnLux() {
+  const colors = [0xff77aa, 0x77ffaa, 0x77aaff, 0xffcc33];
+  for(let i=0; i<40; i++) {
+    const geo = Math.random() > 0.3 ? new THREE.SphereGeometry(0.4, 12, 12) : new THREE.IcosahedronGeometry(0.5, 0);
+    const mat = new THREE.MeshPhongMaterial({ 
+      color: colors[Math.floor(Math.random()*colors.length)],
+      emissive: 0x222222,
+      specular: 0xffffff,
+      shininess: 100,
+      transparent: true,
+      opacity: 0.7
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set((Math.random()-0.5)*50, -25 - Math.random()*20, (Math.random()-0.5)*10);
+    mesh.userData = { vy: 0.08 + Math.random()*0.15, rs: Math.random()*0.02 };
+    scene.add(mesh);
+    extraObjects.push(mesh);
+  }
+  const light = new THREE.PointLight(0xff3366, 2, 50);
+  light.position.set(0,0,5);
+  scene.add(light);
+  extraObjects.push(light);
+}
 
-        const worldGroup = new THREE.Group();
-        scene.add(worldGroup);
+/**
+ * 手势与逻辑
+ */
+const hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75 });
 
-        function createTree() {
-            const points = []; const colors = [];
-            // 樹身粒子 (螺旋分佈)
-            for (let i = 0; i < 20000; i++) {
-                const u = Math.random(); const h = Math.pow(u, 1.6);
-                const y = 42 * h - 15;
-                const baseR = Math.pow(1 - h, 1.1) * 16;
-                const angle = u * 10 * Math.PI * 2 + (Math.random()-0.5)*0.5;
-                const r = baseR * (0.85 + Math.random()*0.25);
-                points.push(Math.cos(angle)*r, y, Math.sin(angle)*r);
-                colors.push(1, 0.85, 0.2);
-            }
-            // 樹頂愛心 (Python 方程)
-            let hc = 0;
-            while(hc < 1000) {
-                const x = (Math.random()-0.5)*2.5; const y = (Math.random()-0.5)*2.5;
-                if(Math.pow(x*x+y*y-1, 3)-x*x*Math.pow(y,3) <= 0) {
-                    points.push(x*3, 30+(y+1)*3, (Math.random()-0.5)*1.5);
-                    colors.push(1, 0.1, 0.2); hc++;
-                }
-            }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            return new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.35, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending }));
-        }
-        worldGroup.add(createTree());
+hands.onResults((res) => {
+  if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+    const lm = res.multiHandLandmarks[0];
+    let fingers = [lm[8], lm[12], lm[16], lm[20]].filter(f => f.y < lm[f === lm[8] ? 6 : (lm.indexOf(f)-2)].y).length;
+    if (Math.abs(lm[4].x - lm[17].x) > 0.15) fingers++;
 
-        // --- 3. AI 手勢與互動 ---
-        const videoHidden = document.getElementById('video-hidden');
-        let rotVel = 0.006, currentMode = 'tree', photoIdx = 0, cooldown = false;
+    const isFist = lm[8].y > lm[5].y && lm[12].y > lm[9].y && lm[16].y > lm[13].y;
+    
+    let nextG = isFist ? 0 : fingers;
+    if(nextG !== currentGesture) {
+      currentGesture = nextG;
+      extraObjects.forEach(o => scene.remove(o));
+      extraObjects = [];
+      
+      if(nextG === 5) {
+        targetPos = getTextPoints("I ❤ U", true);
+        spawnLux();
+      } else if(nextG >= 1 && nextG <= 3) {
+        targetPos = getTextPoints(nextG.toString());
+      } else {
+        targetPos = []; // 握拳重置
+      }
+    }
+  }
+});
 
-        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
-        hands.onResults((res) => {
-            if (res.multiHandLandmarks && res.multiHandLandmarks[0]) {
-                const m = res.multiHandLandmarks[0];
-                const d = Math.hypot(m[4].x - m[8].x, m[4].y - m[8].y);
-                if (!cooldown) {
-                    if (currentMode === 'tree') {
-                        rotVel = (m[8].x - 0.5) * 0.15;
-                        if (d > 0.4) { 
-                            currentMode = 'gallery'; document.body.classList.add('gallery-active');
-                            if(photos.length > 0) document.getElementById('gallery-photo').src = photos[0];
-                            triggerCooldown("GALLERY MODE");
-                        }
-                    } else {
-                        if (d < 0.1) { currentMode = 'tree'; document.body.classList.remove('gallery-active'); triggerCooldown("TREE MODE"); }
-                        if (m[8].x < 0.25) { photoIdx = (photoIdx+1)%photos.length; updatePhoto(); }
-                        else if (m[8].x > 0.75) { photoIdx = (photoIdx-1+photos.length)%photos.length; updatePhoto(); }
-                    }
-                }
-            }
-        });
+const cam = new Camera(document.getElementById('input-video'), {
+  onFrame: async () => await hands.send({image: document.getElementById('input-video')}),
+  width: 640, height: 480
+});
+cam.start();
 
-        function updatePhoto() {
-            if(photos.length > 0) {
-                const img = document.getElementById('gallery-photo');
-                img.style.opacity = 0;
-                setTimeout(() => { img.src = photos[photoIdx]; img.style.opacity = 1; }, 200);
-                triggerCooldown();
-            }
-        }
+function animate() {
+  requestAnimationFrame(animate);
+  const time = clock.getElapsedTime();
+  const pos = starSystem.geometry.attributes.position.array;
 
-        function triggerCooldown(msg) {
-            cooldown = true; if(msg) document.getElementById('hint-text').innerText = msg;
-            setTimeout(() => { cooldown = false; }, 800);
-        }
+  for (let i = 0; i < PARAMS.pCount; i++) {
+    const i3 = i * 3;
+    let tx, ty, tz;
 
-        const cam = new Camera(videoHidden, { onFrame: async () => await hands.send({image: videoHidden}), width: 640, height: 480 });
-        cam.start().then(() => document.getElementById('hint-text').innerText = "🖐 WAVE HAND TO START");
+    if (targetPos.length > 0) {
+      const target = targetPos[i % targetPos.length];
+      tx = target.x; ty = target.y; tz = target.z;
+    } else {
+      // 待机状态：优雅的星云旋转
+      tx = Math.cos(time * 0.3 + i) * (20 + Math.sin(i) * 5);
+      ty = Math.sin(time * 0.5 + i) * (15 + Math.cos(i) * 5);
+      tz = Math.sin(time * 0.2) * 10;
+    }
 
-        function animate() { requestAnimationFrame(animate); worldGroup.rotation.y += rotVel; renderer.render(scene, camera); }
-        animate();
+    pos[i3] += (tx - pos[i3]) * PARAMS.lerpSpeed;
+    pos[i3+1] += (ty - pos[i3+1]) * PARAMS.lerpSpeed;
+    pos[i3+2] += (tz - pos[i3+2]) * PARAMS.lerpSpeed;
+  }
+  
+  starSystem.geometry.attributes.position.needsUpdate = true;
+  starSystem.rotation.y = Math.sin(time * 0.1) * 0.2; // 微弱的整体晃动感
 
-        document.getElementById('lib-toggle').onclick = () => document.getElementById('library').classList.toggle('open');
-        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-    </script>
-</body>
-</html>
+  extraObjects.forEach(obj => {
+    if(obj.isMesh) {
+      obj.position.y += obj.userData.vy;
+      obj.rotation.y += obj.userData.rs;
+      if(obj.position.y > 30) obj.position.y = -30;
+    }
+  });
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+document.getElementById('fullscreen-btn').onclick = () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+};
+
+init();
+animate();
+</script>
