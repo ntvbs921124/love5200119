@@ -3,44 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Xmas - Particle Edition</title>
+    <title>AI Xmas - Particle Magic Pro</title>
     <style>
-        body { margin: 0; background: radial-gradient(circle at center, #050a0f 0%, #000 100%); overflow: hidden; font-family: sans-serif; touch-action: none; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #video-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        /* 基礎樣式：營造深邃宇宙與極簡感 */
+        body { 
+            margin: 0; 
+            background: radial-gradient(circle at center, #0a121a 0%, #000 100%); 
+            overflow: hidden; 
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; 
+            touch-action: none; 
+            color: #fff;
+        }
+
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
         
-        /* UI 質感優化 */
-        .ui-header { position: absolute; top: 40px; width: 100%; text-align: center; z-index: 10; pointer-events: none; }
-        .main-title { font-size: 1.8rem; letter-spacing: 12px; color: #ffd700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); font-weight: 200; margin: 0; }
-        #status-box { position: absolute; bottom: 40px; width: 100%; text-align: center; z-index: 10; color: rgba(255,255,255,0.6); font-size: 0.8rem; letter-spacing: 2px; }
+        /* 隱藏視訊 */
+        #video-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
         
-        #lib-toggle { position: absolute; top: 25px; left: 25px; z-index: 150; background: none; border: 1px solid rgba(255,215,0,0.3); color: #ffd700; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; backdrop-filter: blur(5px); }
-        #library { position: absolute; top: 0; left: -100%; width: 280px; height: 100%; background: rgba(0,0,0,0.9); z-index: 200; transition: 0.4s; padding: 25px; border-right: 1px solid rgba(255,215,0,0.2); color: #ccc; }
+        /* 頂部標題：仿影片中的發光感 */
+        .ui-header {
+            position: absolute;
+            top: 50px;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .main-title {
+            font-size: 1.8rem;
+            font-weight: 200;
+            letter-spacing: 12px;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.2);
+            margin: 0;
+        }
+        .sub-title {
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 8px;
+            text-transform: uppercase;
+        }
+
+        /* 狀態提示列 */
+        #status-container {
+            position: absolute;
+            bottom: 60px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #status-box {
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+            padding: 10px 40px;
+            background: linear-gradient(to bottom, transparent, rgba(255,215,0,0.03));
+            transition: all 0.5s;
+        }
+        #hint-text {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 3px;
+        }
+
+        /* 設定按鈕 */
+        #lib-toggle {
+            position: absolute;
+            top: 35px;
+            left: 25px;
+            z-index: 150;
+            background: transparent;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            font-size: 1.2rem;
+        }
+
+        /* 相簿選單 */
+        #library {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 80%;
+            max-width: 320px;
+            height: 100%;
+            background: rgba(5, 10, 15, 0.98);
+            z-index: 200;
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 30px;
+            border-right: 1px solid rgba(255, 215, 0, 0.1);
+            overflow-y: auto;
+        }
         #library.open { left: 0; }
         
-        #gallery-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.9); z-index: 20; opacity: 0; pointer-events: none; transition: 0.5s; }
-        #gallery-photo { max-width: 85%; max-height: 60%; border: 1px solid #ffd700; }
+        /* 相簿模式顯示 */
+        #gallery-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.92); z-index: 20; opacity: 0; pointer-events: none; transition: 0.8s; }
+        #gallery-photo { max-width: 85%; max-height: 65%; border: 1px solid rgba(255,215,0,0.3); padding: 5px; background: #000; box-shadow: 0 0 50px rgba(0,0,0,1); transition: opacity 0.3s; }
         
-        body.gallery-active #canvas-container { filter: blur(15px) brightness(0.5); }
+        /* 反饋動畫 */
+        .flash #status-box { border-bottom-color: #ffd700; transform: translateY(-3px); }
+        .flash #hint-text { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+
+        body.gallery-active #canvas-container { filter: blur(25px) brightness(0.2); transform: scale(1.1); }
         body.gallery-active #gallery-container { opacity: 1; pointer-events: auto; }
     </style>
 </head>
 <body>
     <button id="lib-toggle">⚙</button>
     <div id="library">
-        <h3 style="color:#ffd700; font-weight: 200;">SETTINGS</h3>
-        <div id="file-inputs"></div>
-        <button style="width:100%; padding:12px; background:none; border:1px solid #ffd700; color:#ffd700; margin-top:20px;" onclick="saveLocalPhotos()">SAVE & RESTART</button>
+        <h2 style="font-weight: 200; color: #ffd700; letter-spacing: 4px;">SETTINGS</h2>
+        <div id="file-inputs" style="margin-top: 30px;"></div>
+        <button style="width:100%; padding:15px; background:transparent; color:#ffd700; border:1px solid #ffd700; border-radius:2px; font-weight:bold; margin-top:20px; letter-spacing: 2px;" onclick="saveLocalPhotos()">SAVE & RESTART</button>
     </div>
 
     <video id="video-hidden" autoplay playsinline muted></video>
+    
     <div id="canvas-container"></div>
     <div id="gallery-container"><img id="gallery-photo" src=""></div>
 
     <div class="ui-header">
-        <h1 class="main-title">MERRY XMAS</h1>
+        <h1 class="main-title">STARRY XMAS</h1>
+        <div class="sub-title">AI Gesture Motion Sensing</div>
     </div>
-    <div id="status-box"><div id="hint-text">LOADING SENSORS...</div></div>
+
+    <div id="status-container">
+        <div id="status-box"><div id="hint-text">CONNECTING SENSORS...</div></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -49,115 +142,174 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // --- 初始化參數 ---
+        // 1. 照片處理邏輯
         let photos = JSON.parse(localStorage.getItem('local_xmas_gallery')) || [];
+        const inputContainer = document.getElementById('file-inputs');
+        for(let i=0; i<6; i++) {
+            inputContainer.innerHTML += `<div style="margin-bottom:15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                <input type="file" id="f-${i}" accept="image/*" onchange="previewFile(${i})" style="font-size: 10px; color: #666;">
+                <img id="prev-${i}" style="width:30px;height:30px;display:${photos[i]?'inline-block':'none'};margin-top:5px;border:1px solid #ffd700;" src="${photos[i]||''}">
+            </div>`;
+        }
+        window.previewFile = (i) => {
+            const r = new FileReader(); r.onloadend = () => { const img = document.getElementById(`prev-${i}`); img.src = r.result; img.style.display = 'inline-block'; };
+            if (document.getElementById(`f-${i}`).files[0]) r.readAsDataURL(document.getElementById(`f-${i}`).files[0]);
+        };
+        window.saveLocalPhotos = () => {
+            const np = []; for(let i=0; i<6; i++){ const s = document.getElementById(`prev-${i}`).src; if(s.startsWith('data:')) np.push(s); }
+            localStorage.setItem('local_xmas_gallery', JSON.stringify(np)); location.reload();
+        };
         document.getElementById('lib-toggle').onclick = () => document.getElementById('library').classList.toggle('open');
-        
-        // --- 3D 引擎與場景 ---
+
+        // 2. Three.js 粒子系統 (結合 Python 數學邏輯)
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 20, 60);
+        camera.position.set(0, 15, 60);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
         const worldGroup = new THREE.Group();
         scene.add(worldGroup);
 
-        // --- 粒子生成 (結合 Python 代碼邏輯) ---
-        function createParticles() {
+        function createMagicTree() {
             const points = [];
             const colors = [];
 
-            // 1. 聖誕樹螺旋粒子 (移植自你的 Python 參數)
-            const treeCount = 20000;
+            // (A) 螺旋粒子樹 - 使用 Python 代碼中的 h = u^1.6 權重
+            const treeCount = 25000;
             for (let i = 0; i < treeCount; i++) {
                 const u = Math.random();
-                const h = Math.pow(u, 1.6);
-                const y = 40 * h; 
-                const baseR = Math.pow(1 - h, 1.1) * 15;
-                const angle = u * 9 * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-                const r = baseR * (0.85 + Math.random() * 0.23);
+                const h = Math.pow(u, 1.6); // 讓底部更密集
+                const y = 42 * h - 15; 
+                const baseR = Math.pow(1 - h, 1.1) * 16;
+                const angle = u * 10 * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+                const r = baseR * (0.85 + Math.random() * 0.25);
 
-                points.push(Math.cos(angle) * r, y - 15, Math.sin(angle) * r);
-                colors.push(1, 0.8 + Math.random() * 0.2, 0.4 + Math.random() * 0.4); // 暖金色系
+                points.push(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                // 暖色系：金色、黃色、白色混合
+                const rand = Math.random();
+                if(rand > 0.8) colors.push(1, 1, 1); // 白色亮點
+                else if(rand > 0.4) colors.push(1, 0.84, 0); // 金色
+                else colors.push(1, 0.5, 0.1); // 暖橘
             }
 
-            // 2. 地面環狀粒子
-            const groundCount = 3000;
-            const rings = [15, 20, 25];
+            // (B) 地面光環粒子
+            const groundCount = 4000;
+            const rings = [18, 22, 26, 30];
             for (let i = 0; i < groundCount; i++) {
                 const ring = rings[Math.floor(Math.random() * rings.length)];
                 const r = ring + (Math.random() - 0.5) * 2;
                 const angle = Math.random() * Math.PI * 2;
-                points.push(Math.cos(angle) * r, -15, Math.sin(angle) * r);
-                colors.push(0.5, 0.8, 1); // 冰藍色
+                points.push(Math.cos(angle) * r, -15.5, Math.sin(angle) * r);
+                colors.push(0.3, 0.6, 1); // 冰藍色調
             }
 
-            // 3. 樹頂 3D 愛心 (移植自你的 Python 隱式方程)
-            const heartCount = 1500;
-            let hC = 0;
-            while (hC < heartCount) {
-                const x = (Math.random() - 0.5) * 2.6;
-                const y = (Math.random() - 0.5) * 2.8;
+            // (C) 樹頂 3D 愛心 - 移植自 Python 隱式方程
+            const heartCount = 1200;
+            let currentHeart = 0;
+            while (currentHeart < heartCount) {
+                const x = (Math.random() - 0.5) * 2.5;
+                const y = (Math.random() - 0.5) * 2.5;
                 const f = Math.pow(x*x + y*y - 1, 3) - x*x * Math.pow(y, 3);
                 if (f <= 0) {
-                    points.push(x * 3, 28 + (y + 1) * 3, (Math.random() - 0.5) * 2);
-                    colors.push(1, 0.2, 0.3); // 紅色
-                    hC++;
+                    points.push(x * 3, 30 + (y + 1) * 3, (Math.random() - 0.5) * 1.5);
+                    colors.push(1, 0.1, 0.2); // 紅心
+                    currentHeart++;
                 }
             }
 
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            const mat = new THREE.PointsMaterial({ size: 0.35, vertexColors: true, transparent: true, opacity: 0.8 });
-            return new THREE.Points(geo, mat);
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.PointsMaterial({ 
+                size: 0.38, 
+                vertexColors: true, 
+                transparent: true, 
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending 
+            });
+            
+            return new THREE.Points(geometry, material);
         }
 
-        const particleSystem = createParticles();
+        const particleSystem = createMagicTree();
         worldGroup.add(particleSystem);
 
-        // --- AI 偵測與互動 ---
+        // 3. AI 手勢與互動
         const videoHidden = document.getElementById('video-hidden');
-        let rotVel = 0.005, currentMode = 'tree', photoIdx = 0, gestureCooldown = false;
+        let rotVel = 0.006, currentMode = 'tree', photoIdx = 0, gestureCooldown = false;
+        const mainImg = document.getElementById('gallery-photo');
+        if(photos.length > 0) mainImg.src = photos[0];
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.55 });
+
         hands.onResults((res) => {
             if (res.multiHandLandmarks && res.multiHandLandmarks[0]) {
                 const m = res.multiHandLandmarks[0];
                 const d = Math.sqrt(Math.pow(m[4].x - m[8].x, 2) + Math.pow(m[4].y - m[8].y, 2));
                 if (!gestureCooldown) {
                     if (currentMode === 'tree') {
-                        rotVel = (m[8].x - 0.5) * 0.1;
-                        if (d > 0.4) { currentMode='gallery'; document.body.className='gallery-active'; updateHint("GALLERY MODE"); }
+                        rotVel = (m[8].x - 0.5) * 0.16; // 手勢控制旋轉速度
+                        if (d > 0.4) { 
+                            currentMode='gallery'; 
+                            document.body.className='gallery-active'; 
+                            triggerFeedback("GALLERY MODE"); 
+                        }
                     } else {
-                        if (d < 0.1) { currentMode='tree'; document.body.className=''; updateHint("TREE MODE"); }
-                        if (m[8].x < 0.25) changePhoto(1); else if (m[8].x > 0.75) changePhoto(-1);
+                        if (d < 0.12) { 
+                            currentMode='tree'; 
+                            document.body.className=''; 
+                            triggerFeedback("TREE MODE"); 
+                        }
+                        if (m[8].x < 0.28) changePhoto(1); else if (m[8].x > 0.72) changePhoto(-1);
                     }
                 }
             }
         });
 
         async function initCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            videoHidden.srcObject = stream;
-            const cam = new Camera(videoHidden, { onFrame: async () => { await hands.send({image: videoHidden}); } });
-            cam.start();
-            updateHint("SENSORS READY - WAVE YOUR HAND");
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: 640, height: 480 } 
+                });
+                videoHidden.srcObject = stream;
+                videoHidden.onloadedmetadata = () => {
+                    const cam = new Camera(videoHidden, {
+                        onFrame: async () => { await hands.send({image: videoHidden}); }
+                    });
+                    cam.start();
+                    document.getElementById('hint-text').innerText = "OPEN HAND TO START MAGIC";
+                };
+            } catch (err) {
+                document.getElementById('hint-text').innerText = "CAMERA ACCESS DENIED";
+            }
         }
         initCamera();
 
-        function updateHint(t) { document.getElementById('hint-text').innerText = t; }
-        function changePhoto(s) { /* 同前邏輯 */ }
+        function triggerFeedback(txt) {
+            gestureCooldown = true; 
+            if(txt) document.getElementById('hint-text').innerText = txt;
+            document.getElementById('status-container').classList.add('flash');
+            setTimeout(() => { document.getElementById('status-container').classList.remove('flash'); gestureCooldown = false; }, 1200);
+        }
 
-        // --- 動畫循環 ---
+        function changePhoto(s) {
+            if(photos.length === 0) return;
+            photoIdx = (photoIdx + s + photos.length) % photos.length;
+            mainImg.style.opacity = 0;
+            setTimeout(() => { mainImg.src = photos[photoIdx]; mainImg.style.opacity = 1; }, 200);
+            triggerFeedback();
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             worldGroup.rotation.y += rotVel;
-            // 讓粒子有微弱抖動感 (模擬 Python 中的隨機效果)
-            particleSystem.rotation.y += 0.001;
+            // 讓粒子系統有額外的微弱律動
+            particleSystem.rotation.y += 0.0015;
             renderer.render(scene, camera);
         }
         animate();
